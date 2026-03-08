@@ -80,7 +80,7 @@ int main(int ac, char *av[]) {
     
     // Tire particles
     SolidBody tire(sph_system, makeShared<Tire>("Tire"));
-    tire.defineBodyLevelSetShape()->writeLevelSet();
+    tire.defineBodyLevelSetShape().writeLevelSet();
     tire.defineMaterial<TireBodyComposite>();
         (!sph_system.RunParticleRelaxation() && sph_system.ReloadParticles())
         ? tire.generateParticles<BaseParticles, Reload>(tire.getName())
