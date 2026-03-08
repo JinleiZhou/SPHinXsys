@@ -171,7 +171,7 @@ int main(int ac, char *av[]) {
     // Body Materials
     //-------------------------------------------------------------------
     SolidBody tire(sph_system, makeShared<Tire>("Tire"));
-    tire.defineBodyLevelSetShape()->writeLevelSet();
+    tire.defineBodyLevelSetShape().writeLevelSet();
     tire.defineMaterial<SaintVenantKirchhoffSolid>(rho0_avg, Youngs_modulus1, poisson_1);
         (!sph_system.RunParticleRelaxation() && sph_system.ReloadParticles())
         ? tire.generateParticles<BaseParticles, Reload>(tire.getName())
