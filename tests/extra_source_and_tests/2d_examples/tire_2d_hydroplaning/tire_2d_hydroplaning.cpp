@@ -328,12 +328,9 @@ int main(int ac, char *av[]) {
     //	Setup for time-stepping control
     //----------------------------------------------------------------------
     Real &physical_time = *sph_system.getSystemVariableDataByName<Real>("PhysicalTime");
-    int ite = 0;
     Real T0 = 0.1;
     Real end_time = T0;
     Real output_interval = T0/150;
-    Real Dt = output_interval;
-    Real dt = 0.0;
     size_t number_of_iterations = 0;
     int screen_output_interval = 50;
     
