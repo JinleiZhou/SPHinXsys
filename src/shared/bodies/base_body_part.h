@@ -117,13 +117,9 @@ class BodyPartByParticle : public BodyPart
     size_t SizeOfLoopRange() { return body_part_particles_.size(); };
     BodyPartByParticle(SPHBody &sph_body);
     virtual ~BodyPartByParticle() {};
-    void setBodyPartBounds(BoundingBoxd bbox);
-    BoundingBoxd getBodyPartBounds();
 
   protected:
     DiscreteVariable<UnsignedInt> *dv_particle_list_;
-    BoundingBoxd body_part_bounds_;
-    bool body_part_bounds_set_;
     typedef std::function<bool(size_t)> TaggingParticleMethod;
     void tagParticles(TaggingParticleMethod &tagging_particle_method);
 };
@@ -255,13 +251,14 @@ class AlignedBoxPart
     UniquePtrKeeper<SingularVariable<AlignedBox>> sv_aligned_box_keeper_;
 
   public:
-    AlignedBoxPart(const std::string &part_name, const AlignedBox &aligned_box);
+    AlignedBoxPart(SPHSystem &sph_system, const std::string &part_name, const AlignedBox &aligned_box);
     virtual ~AlignedBoxPart() {};
     SingularVariable<AlignedBox> *svAlignedBox() { return sv_aligned_box_keeper_.getPtr(); };
     AlignedBox &getAlignedBox() { return aligned_box_; };
-    void writeShapeProxy(SPHSystem &sph_system);
+    void writeShapeProxy();
 
   protected:
+    SPHSystem &sph_system_;
     AlignedBox &aligned_box_;
 };
 

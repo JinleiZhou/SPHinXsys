@@ -1,6 +1,8 @@
 /**
  * @file  static_tire_center_deflection_zjl.cpp
- *  */
+ * @author Jinlei Zhou
+ * @date 2025-06
+ */
 #include "sphinxsys.h"
 #include "kernel_summation.h"
 #include "kernel_summation.hpp"
@@ -70,7 +72,7 @@ int main(int ac, char *av[]) {
     
     sph_system.setRunParticleRelaxation(false);
     sph_system.setReloadParticles(true);
-    sph_system.setGenerateRegressionData(true);
+    sph_system.setGenerateRegressionData(false);
     sph_system.handleCommandlineOptions(ac, av);
     IOEnvironment io_environment(sph_system);
 

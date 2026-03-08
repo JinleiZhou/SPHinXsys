@@ -35,6 +35,7 @@
 #include "parameterization.h"
 #include "sphinxsys_containers.h"
 #include "xml_engine.h"
+#include "xml_parser.h"
 
 #include <filesystem>
 #include <fstream>
@@ -147,7 +148,7 @@ class BodyStatesRecording : public BaseIO
 class RestartIO : public BaseIO
 {
   protected:
-    SPHBodyVector bodies_;
+    SPHBodyVector real_bodies_;
     std::string overall_file_path_;
     StdVec<std::string> file_names_;
 

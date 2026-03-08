@@ -33,4 +33,8 @@ BoundingBoxd GeometricShapeBall::findBounds()
     return BoundingBoxd(center_ - shift, center_ + shift);
 }
 //=================================================================================================//
+GeometricShapeCylinder::GeometricShapeCylinder(const Transform &transform, Real radius, Real halflength,
+                                               const std::string &name)
+    : TransformShape<GeometricCylinder>(name, transform, radius, halflength) {}
+//=================================================================================================//
 } // namespace SPH

@@ -15,9 +15,6 @@
 BodyPartFromMesh::BodyPartFromMesh(SPHBody &body, SharedPtr<TriangleMeshShape> triangle_mesh_shape_ptr)
     : BodyRegionByParticle(body, triangle_mesh_shape_ptr)
 {
-    // set the body domain bounds because it is not set by default
-    BoundingBoxd bounds = triangle_mesh_shape_ptr->getBounds();
-    setBodyPartBounds(bounds);
 }
 
 SolidBodyFromMesh::SolidBodyFromMesh(
@@ -26,7 +23,7 @@ SolidBodyFromMesh::SolidBodyFromMesh(
     : SolidBody(system, triangle_mesh_shape)
 {
     defineAdaptationRatios(1.15, system.GlobalResolution() / resolution);
-    defineBodyLevelSetShape()->cleanLevelSet();
+    defineBodyLevelSetShape().cleanLevelSet();
     defineMaterial<SaintVenantKirchhoffSolid>(*material_model.get());
     generateParticles<BaseParticles, Lattice>();
 }
@@ -111,7 +108,7 @@ std::tuple<Vecd *, Real *> generateAndRelaxParticlesFromMesh(
     BoundingBoxd bb = triangle_mesh_shape->getBounds();
     SPHSystem system(bb, resolution);
     SolidBody model(system, triangle_mesh_shape);
-    model.defineBodyLevelSetShape()->cleanLevelSet();
+    model.defineBodyLevelSetShape().cleanLevelSet();
     model.defineMaterial<Solid>();
     model.generateParticles<BaseParticles, Lattice>();
 
@@ -826,6 +823,15 @@ void StructuralSimulation::initializeSimulation()
 
     /** INITIAL CONDITION */
     executeCorrectConfiguration();
+
+    /** ACOUSTIC TIME STEP */
+    initializeAcousticTimeStepList();
+}
+
+void StructuralSimulation::initializeAcousticTimeStepList()
+{
+    for (auto &body : solid_body_list_)
+        acoustic_time_step_list_.emplace_back(makeShared<ReduceDynamics<solid_dynamics::AcousticTimeStep>>(*body->getSolidBodyFromMesh()));
 }
 
 void StructuralSimulation::runSimulationStep(Real &dt, Real &integration_time)
@@ -873,7 +879,7 @@ void StructuralSimulation::runSimulationStep(Real &dt, Real &integration_time)
     executeStressRelaxationSecondHalf(dt);
     /** UPDATE TIME STEP SIZE, INCREMENT */
     iteration_++;
-    dt = system_.getSmallestTimeStepAmongSolidBodies();
+    dt = getSmallestTimeStepAmongSolidBodies();
     integration_time += dt;
     physical_time_ += dt;
 
@@ -960,6 +966,14 @@ Real StructuralSimulation::getMaxDisplacement(int body_index)
             displ_max = displ;
     }
     return displ_max;
+}
+
+Real StructuralSimulation::getSmallestTimeStepAmongSolidBodies()
+{
+    Real dt = MaxReal;
+    for (auto &acoustic_time_step : acoustic_time_step_list_)
+        dt = SMIN(dt, acoustic_time_step->exec());
+    return dt;
 }
 
 StructuralSimulationJS::StructuralSimulationJS(const StructuralSimulationInput &input)

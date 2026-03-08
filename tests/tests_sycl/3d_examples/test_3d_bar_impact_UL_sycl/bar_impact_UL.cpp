@@ -42,25 +42,32 @@ int main(int ac, char *av[])
     SPHSystem sph_system(system_domain_bounds, particle_spacing_ref);
     sph_system.setRunParticleRelaxation(false);
     sph_system.handleCommandlineOptions(ac, av);
-
+    //----------------------------------------------------------------------
+    //	Setup geometry first.
+    //----------------------------------------------------------------------
     auto &column_shape = sph_system.addShape<TriangleMeshShapeCylinder>(
         Vec3d(0, 0, 1.0), column_radius, 0.5 * PW, resolution, translation_column, "Column");
     auto &wall_shape = sph_system.addShape<TriangleMeshShapeBrick>(
         halfsize_holder, resolution, translation_holder, "Wall");
-
-    auto &column = sph_system.addBody<RealBody>(column_shape);
-    auto &wall_boundary = sph_system.addBody<SolidBody>(wall_shape);
+    //----------------------------------------------------------------------
+    //	Run particle relaxation for body-fitted distribution if chosen.
+    //----------------------------------------------------------------------
     if (sph_system.RunParticleRelaxation())
     {
-        LevelSetShape *level_set_shape = column.defineBodyLevelSetShape(par_ck, 2.0)->writeLevelSet();
+        RelaxationSystem relaxation_system(system_domain_bounds, particle_spacing_ref);
+
+        auto &column = relaxation_system.addBody<RealBody>(column_shape);
+        LevelSetShape &level_set_shape = column.defineBodyLevelSetShape(par_ck, 2.0).writeLevelSet();
         column.generateParticles<BaseParticles, Lattice>();
+
+        auto &wall_boundary = relaxation_system.addBody<SolidBody>(wall_shape);
         wall_boundary.generateParticles<BaseParticles, Lattice>();
         NearShapeSurface near_body_surface(column);
         Inner<> column_inner(column);
         //----------------------------------------------------------------------
         //	Methods used for particle relaxation.
         //----------------------------------------------------------------------
-        SPHSolver sph_solver(sph_system);
+        SPHSolver sph_solver(relaxation_system);
         auto &main_methods = sph_solver.addParticleMethodContainer(par_ck);
         auto &host_methods = sph_solver.addParticleMethodContainer(par_host);
 
@@ -69,7 +76,7 @@ int main(int ac, char *av[])
         auto &random_input_body_particles = host_methods.addStateDynamics<RandomizeParticlePositionCK>(column);
         auto &relaxation_residual =
             main_methods.addInteractionDynamics<KernelGradientIntegral, NoKernelCorrectionCK>(column_inner)
-                .addPostStateDynamics<LevelsetKernelGradientIntegral>(column, *level_set_shape);
+                .addPostStateDynamics<LevelsetKernelGradientIntegral>(column, level_set_shape);
         auto &relaxation_scaling = main_methods.addReduceDynamics<RelaxationScalingCK>(column);
         auto &update_particle_position = main_methods.addStateDynamics<PositionRelaxationCK>(column);
         auto &level_set_bounding = main_methods.addStateDynamics<LevelsetBounding>(near_body_surface);
@@ -80,7 +87,7 @@ int main(int ac, char *av[])
         //----------------------------------------------------------------------
         //	Define simple file input and outputs functions.
         //----------------------------------------------------------------------
-        auto &body_state_recorder = main_methods.addBodyStateRecorder<BodyStatesRecordingToVtpCK>(column);
+        auto &body_state_recorder = main_methods.addBodyStateRecorder<BodyStatesRecordingToVtpCK>(relaxation_system);
         auto &write_particle_reload_files = main_methods.addIODynamics<ReloadParticleIOCK>(StdVec<SPHBody *>{&column, &wall_boundary});
         write_particle_reload_files.addToReload<Vecd>(wall_boundary, "NormalDirection");
         //----------------------------------------------------------------------
@@ -122,13 +129,19 @@ int main(int ac, char *av[])
         {
             return 0;
         }
+        else
+        {
+            std::cout << "To reload particles and start the main simulation." << std::endl;
+        }
     }
+    auto &column = sph_system.addBody<RealBody>(column_shape);
     column.defineMaterial<J2Plasticity>(rho0_s, c0, Youngs_modulus, poisson, yield_stress);
     column.generateParticles<BaseParticles, Reload>(column.getName());
 
+    auto &wall_boundary = sph_system.addBody<SolidBody>(wall_shape);
     wall_boundary.defineMaterial<SaintVenantKirchhoffSolid>(rho0_s, Youngs_modulus, poisson);
     wall_boundary.generateParticles<BaseParticles, Reload>(wall_boundary.getName())
-        ->reloadExtraVariable<Vecd>("NormalDirection");
+        .reloadExtraVariable<Vecd>("NormalDirection");
 
     auto &column_observer = sph_system.addBody<ObserverBody>("ColumnObserver");
     column_observer.generateParticles<ObserverParticles>(observation_location);

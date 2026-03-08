@@ -60,6 +60,14 @@ class GeometricShapeBall : public GeometricBall, public Shape
   protected:
     virtual BoundingBoxd findBounds() override;
 };
+
+class GeometricShapeCylinder : public TransformShape<GeometricCylinder>
+{
+  public:
+    GeometricShapeCylinder(const Transform &transform, Real radius, Real halflength,
+                           const std::string &name = "GeometricShapeCylinder");
+    virtual ~GeometricShapeCylinder() {};
+};
 } // namespace SPH
 
 #endif // GEOMETRIC_SHAPE_H

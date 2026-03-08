@@ -190,7 +190,7 @@ int main(int ac, char *av[])
     sph_system.setRunParticleRelaxation(false);
     sph_system.handleCommandlineOptions(ac, av);
     //----------------------------------------------------------------------
-    //	Creating bodies with corresponding materials and particles.
+    //	Setup geometry first.
     //----------------------------------------------------------------------
     size_t SimTK_resolution = 15;
     auto water_body_shape = makeShared<ComplexShape>("WaterBody");
@@ -205,21 +205,22 @@ int main(int ac, char *av[])
     wall_body_shape->subtract<TriangleMeshShapeCylinder>(Vec3d(1., 0., 0.), DH * 0.5,
                                                          DL * 0.5 + BW, SimTK_resolution,
                                                          translation_fluid, "InnerBoundary");
-
-    FluidBody water_body(sph_system, water_body_shape);
-    SolidBody wall(sph_system, wall_body_shape);
     //----------------------------------------------------------------------
     //	Run particle relaxation for body-fitted distribution if chosen.
     //----------------------------------------------------------------------
     if (sph_system.RunParticleRelaxation())
     {
-        LevelSetShape *outer_level_set_shape = wall.defineComponentLevelSetShape("OuterBoundary", 2.0)
-                                                   ->writeLevelSet();
+        RelaxationSystem relaxation_system(system_domain_bounds, global_resolution);
+
+        SolidBody wall(relaxation_system, wall_body_shape);
         wall.generateParticles<BaseParticles, Lattice>();
+        LevelSetShape &outer_level_set_shape = wall.defineComponentLevelSetShape("OuterBoundary", 2.0)
+                                                   .writeLevelSet();
         NearShapeSurface near_wall_outer_surface(wall, "OuterBoundary");
 
-        LevelSetShape *water_level_set_shape = water_body.defineBodyLevelSetShape(2.0)
-                                                   ->writeLevelSet();
+        FluidBody water_body(relaxation_system, water_body_shape);
+        LevelSetShape &water_level_set_shape = water_body.defineBodyLevelSetShape(2.0)
+                                                   .writeLevelSet();
         water_body.generateParticles<BaseParticles, Lattice>();
         NearShapeSurface near_water_surface(water_body);
 
@@ -229,7 +230,7 @@ int main(int ac, char *av[])
         //----------------------------------------------------------------------
         //	Methods used for particle relaxation.
         //----------------------------------------------------------------------
-        SPHSolver sph_solver(sph_system);
+        SPHSolver sph_solver(relaxation_system);
         auto &main_methods = sph_solver.addParticleMethodContainer(par_host);
         auto &host_methods = sph_solver.addParticleMethodContainer(par_host);
 
@@ -243,7 +244,7 @@ int main(int ac, char *av[])
 
         auto &water_relaxation_residual =
             main_methods.addInteractionDynamics<KernelGradientIntegral, NoKernelCorrectionCK>(water_inner)
-                .addPostStateDynamics<LevelsetKernelGradientIntegral>(water_body, *water_level_set_shape);
+                .addPostStateDynamics<LevelsetKernelGradientIntegral>(water_body, water_level_set_shape);
         auto &water_relaxation_scaling = main_methods.addReduceDynamics<RelaxationScalingCK>(water_body);
         auto &water_update_particle_position = main_methods.addStateDynamics<PositionRelaxationCK>(water_body);
         auto &water_level_set_bounding = main_methods.addStateDynamics<LevelsetBounding>(near_water_surface);
@@ -251,7 +252,7 @@ int main(int ac, char *av[])
         auto &wall_relaxation_residual =
             main_methods.addInteractionDynamics<KernelGradientIntegral, NoKernelCorrectionCK>(wall_inner)
                 .addPostContactInteraction<Boundary, NoKernelCorrectionCK>(wall_contact)
-                .addPostStateDynamics<LevelsetKernelGradientIntegral>(wall, *outer_level_set_shape);
+                .addPostStateDynamics<LevelsetKernelGradientIntegral>(wall, outer_level_set_shape);
         auto &wall_relaxation_scaling = main_methods.addReduceDynamics<RelaxationScalingCK>(wall);
         auto &wall_update_particle_position = main_methods.addStateDynamics<PositionRelaxationCK>(wall);
         auto &wall_level_set_bounding = main_methods.addStateDynamics<LevelsetBounding>(near_wall_outer_surface);
@@ -262,7 +263,7 @@ int main(int ac, char *av[])
         //----------------------------------------------------------------------
         //	Define simple file input and outputs functions.
         //----------------------------------------------------------------------
-        auto &body_state_recorder = main_methods.addBodyStateRecorder<BodyStatesRecordingToVtpCK>(sph_system);
+        auto &body_state_recorder = main_methods.addBodyStateRecorder<BodyStatesRecordingToVtpCK>(relaxation_system);
         body_state_recorder.addToWrite<Vecd>(wall, "NormalDirection");
         auto &write_particle_reload_files = main_methods.addIODynamics<ReloadParticleIOCK>(StdVec<SPHBody *>{&wall, &water_body});
         write_particle_reload_files.addToReload<Vecd>(wall, "NormalDirection");
@@ -308,15 +309,24 @@ int main(int ac, char *av[])
         wall_normal_direction.exec();
         write_particle_reload_files.writeToFile();
 
-        return 0;
+        if (!sph_system.ReloadParticles())
+        {
+            return 0;
+        }
+        else
+        {
+            std::cout << "To reload particles and start the main simulation." << std::endl;
+        }
     }
+    FluidBody water_body(sph_system, water_body_shape);
     water_body.defineClosure<WeaklyCompressibleFluid, Viscosity>(ConstructArgs(rho0_f, c_f), mu_f);
     ParticleBuffer<ReserveSizeFactor> particle_buffer(0.5);
     water_body.generateParticlesWithReserve<BaseParticles, Reload>(particle_buffer, water_body.getName());
 
+    SolidBody wall(sph_system, wall_body_shape);
     wall.defineMaterial<Solid>();
     wall.generateParticles<BaseParticles, Reload>(wall.getName())
-        ->reloadExtraVariable<Vecd>("NormalDirection");
+        .reloadExtraVariable<Vecd>("NormalDirection");
     // Add observer
     {
         int num_points = 15;
@@ -340,14 +350,14 @@ int main(int ac, char *av[])
     // //	Creating body parts.
     // //----------------------------------------------------------------------
     AlignedBoxByCell left_emitter_by_cell(water_body, AlignedBox(xAxis, Transform(left_bidirectional_translation), bidirectional_buffer_halfsize));
-    left_emitter_by_cell.writeShapeProxy(sph_system);
+    left_emitter_by_cell.writeShapeProxy();
 
     auto default_normal = Vec3d::UnitX();
     auto rotated_normal = -1 * Vec3d::UnitX();
     auto rotation_axis = Vec3d::UnitY();
     auto rot3d = Rotation3d(std::acos(default_normal.dot(rotated_normal)), rotation_axis);
     AlignedBoxByCell right_emitter_by_cell(water_body, AlignedBox(xAxis, Transform(rot3d, right_bidirectional_translation), bidirectional_buffer_halfsize));
-    right_emitter_by_cell.writeShapeProxy(sph_system);
+    right_emitter_by_cell.writeShapeProxy();
     // AlignedBoxByCell right_emitter_by_cell(water_body, AlignedBox(xAxis, Transform(left_bidirectional_translation), bidirectional_buffer_halfsize));
     //----------------------------------------------------------------------
     //	Define body relation map.
