@@ -71,7 +71,7 @@ int main(int ac, char *av[]) {
     // sph_system.setReloadParticles(false);
     
     sph_system.setRunParticleRelaxation(false);
-    sph_system.setReloadParticles(true);
+    sph_system.setReloadParticles(false);
     sph_system.setGenerateRegressionData(false);
     sph_system.handleCommandlineOptions(ac, av);
     IOEnvironment io_environment(sph_system);
