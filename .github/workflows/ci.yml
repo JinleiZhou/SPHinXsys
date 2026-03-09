@@ -1,13 +1,15 @@
 name: CI
 
-# Controls when the action will run.
+
 on:
-  # Triggers the workflow on push or pull request events but only for the master branch
   push:
-    branches: [master]
+    branches:
+      - master
+      - fix/static-tire-regression-observer
   pull_request:
-    branches: [master]
-  # Allows you to run this workflow manually from the Actions tab
+    branches:
+      - master
+
   workflow_dispatch:
     inputs:
       linux_test_debug_enabled:
@@ -34,9 +36,9 @@ env:
   VCPKG_VERSION: "2024.11.16"
   CTEST_PARALLEL_LEVEL: "1"
 
-# A workflow is made up of one or more jobs that can run sequentially or in parallel
+
 jobs:
-  ###############################################################################
+
   Linux-sycl:
     if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-22.04
@@ -44,7 +46,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-linux
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+    
       - uses: actions/checkout@v4
 
       - name: Setup cmake
@@ -72,7 +74,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1 
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -202,7 +204,7 @@ jobs:
           cd build/tests/tests_sycl
           ctest --rerun-failed --output-on-failure --timeout 1000
 
-  ###############################################################################
+ 
   Linux-build:
     if: ${{ github.event_name != 'workflow_dispatch' }}
     runs-on: ubuntu-22.04
@@ -210,7 +212,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-linux
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+
       - uses: actions/checkout@v4
 
       - name: Setup cmake
@@ -237,7 +239,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -289,8 +291,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.linux_test_debug_enabled }}
     needs: Linux-build
     runs-on: ubuntu-22.04
-    # make sure these permissions are set so that
-    # VS Code can connect to the machine
+
     permissions:
       actions: read
       contents: read
@@ -320,7 +321,7 @@ jobs:
             libgl-dev
           sudo apt-get install autoconf automake autoconf-archive
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1 
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -434,12 +435,11 @@ jobs:
           ./bin/code tunnel
         if: ${{ failure() && github.event_name != 'workflow_dispatch' || inputs.linux_test_debug_enabled }}
 
-  ###############################################################################
+
   Windows-build:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.windows_build_debug_enabled }}
     runs-on: windows-latest
-    # make sure these permissions are set so that
-    # VS Code can connect to the machine
+ 
     permissions:
       actions: read
       contents: read
@@ -447,14 +447,14 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
 
     steps:
-      - uses: actions/checkout@v4 # Checks-out the repository under ${{github.workspace}}
+      - uses: actions/checkout@v4 
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.x"
 
-      - name: Update ccache and ninja # For correct caching with ccache on Windows
+      - name: Update ccache and ninja 
         shell: bash
         run: |
           choco install ccache
@@ -466,7 +466,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1 
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -497,7 +497,7 @@ jobs:
             -S ${{github.workspace}} `
             -B C:\build
 
-      # Enable VS code server debugging of manually-triggered workflows if the input option was provided
+      
       - name: 🐛 Initialize VS Code Server for debug in dispatch work flow only
         shell: pwsh
         run: |
@@ -527,14 +527,14 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
 
     steps:
-      - uses: actions/checkout@v4 # Checks-out the repository under ${{github.workspace}}
+      - uses: actions/checkout@v4 
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
         with:
           cmake-version: "3.x"
 
-      - name: Update ccache and ninja # For correct caching with ccache on Windows
+      - name: Update ccache and ninja 
         shell: bash
         run: |
           choco install ccache
@@ -545,7 +545,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -647,7 +647,7 @@ jobs:
           cd C:\build 
           ctest.exe --rerun-failed --output-on-failure --timeout 1000
 
-  ###############################################################################
+
 
   macOS-build:
     if: ${{ github.event_name != 'workflow_dispatch' || inputs.macos_build_debug_enabled  }}
@@ -656,7 +656,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-osx
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+ 
       - uses: actions/checkout@v4
 
       - name: Setup cmake
@@ -680,7 +680,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1 
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -729,7 +729,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-osx
 
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+
       - uses: actions/checkout@v4
 
       - name: Setup cmake
@@ -749,7 +749,7 @@ jobs:
             ninja \
             autoconf automake autoconf-archive
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1 
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -850,12 +850,11 @@ jobs:
           cd build 
           ctest --rerun-failed --output-on-failure --timeout 1000
 
-  ###############################################################################
+
   Windows-dispatch-for-sycl-build:
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.windows_sycl_build_debug_enabled }}
     runs-on: windows-latest
-    # make sure these permissions are set so that
-    # VS Code can connect to the machine
+
     permissions:
       actions: read
       contents: read
@@ -863,7 +862,7 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: x64-windows
 
     steps:
-      - uses: actions/checkout@v4 # Checks-out the repository under ${{github.workspace}}
+      - uses: actions/checkout@v4 
 
       - name: Setup cmake
         uses: jwlawson/actions-setup-cmake@v2
@@ -884,7 +883,7 @@ jobs:
         with:
           key: ${{ github.job }}
 
-      - uses: friendlyanon/setup-vcpkg@v1 # Setup vcpkg into ${{github.workspace}}
+      - uses: friendlyanon/setup-vcpkg@v1
         with:
           committish: ${{ env.VCPKG_VERSION }}
           cache-version: ${{env.VCPKG_VERSION}}
@@ -902,7 +901,7 @@ jobs:
             xsimd `
             pybind11
 
-      # Enable debugging of manually-triggered workflows if the input option was provided
+    
       - name: 🐛 Initialize VS Code Server for debug in dispatch work flow only
         shell: cmd
         run: |
