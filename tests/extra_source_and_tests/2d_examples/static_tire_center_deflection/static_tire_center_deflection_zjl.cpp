@@ -20,7 +20,7 @@
 using namespace SPH;
 
 // Geometry parameters
-Real resolution_ref = 0.0025;
+Real resolution_ref = 0.0035;
 Real rim_thickness = 0.1;
 Real acceleration = 200.0;
 Vec2d tire_center(road_length * 0.5, road_height + R_outer);
@@ -165,9 +165,9 @@ int main(int ac, char *av[]) {
     InteractionWithUpdate<solid_dynamics::ContactForceFromWall> tire_compute_solid_contact_forces(tire_road_contact);
     
     // ========= damping =========
-    Real physical_viscosity_tire = 1000;
+    Real physical_viscosity_tire = 2000;
     DampingWithRandomChoice<InteractionSplit<DampingPairwiseInner<Vec2d, FixedDampingRate>>>
-    tire_velocity_damping(0.6, DynamicsArgs(insert_body_inner, "Velocity", physical_viscosity_tire));
+    tire_velocity_damping(0.8, DynamicsArgs(insert_body_inner, "Velocity", physical_viscosity_tire));
     ReduceDynamics<solid_dynamics::AcousticTimeStep> tire_get_time_step_size(tire, 0.45);
     
     // ========= IO =========

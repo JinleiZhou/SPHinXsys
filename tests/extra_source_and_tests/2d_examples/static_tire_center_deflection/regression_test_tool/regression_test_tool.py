@@ -1,8 +1,29 @@
 import os
 import sys
 
-path = os.path.abspath('../../../../../PythonScriptStore/RegressionTest')
-sys.path.append(path)
+def find_regression_test_base_dir(script_path):
+    current_dir = os.path.dirname(os.path.abspath(script_path))
+    while True:
+        candidate = os.path.join(
+            current_dir,
+            "PythonScriptStore",
+            "RegressionTest",
+            "regression_test_base_tool.py",
+        )
+        if os.path.isfile(candidate):
+            return os.path.dirname(candidate)
+        parent_dir = os.path.dirname(current_dir)
+        if parent_dir == current_dir:
+            break
+        current_dir = parent_dir
+    raise ModuleNotFoundError(
+        "Cannot find PythonScriptStore/RegressionTest/regression_test_base_tool.py "
+        f"starting from {script_path}"
+    )
+
+path = find_regression_test_base_dir(__file__)
+if path not in sys.path:
+    sys.path.append(path)
 
 from regression_test_base_tool import SphinxsysRegressionTest
 
@@ -34,5 +55,4 @@ while True:
     else:
         print("Too many runs, still not converged.")
         break
-
 
