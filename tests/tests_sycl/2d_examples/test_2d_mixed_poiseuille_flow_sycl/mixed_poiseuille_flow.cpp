@@ -128,7 +128,7 @@ class WaterBlock : public MultiPolygonShape
         water_body_shape.emplace_back(DL, 0.0);
         water_body_shape.emplace_back(0.0, 0.0);
 
-        multi_polygon_.addAPolygon(water_body_shape, GeometricOps::add);
+        multi_polygon_.addPolygon(water_body_shape, GeometricOps::add);
     }
 };
 //----------------------------------------------------------------------
@@ -156,8 +156,8 @@ class WallBoundary : public MultiPolygonShape
         inner_wall_shape.emplace_back(DL + BW, 0.0);
         inner_wall_shape.emplace_back(-BW, 0.0);
 
-        multi_polygon_.addAPolygon(outer_wall_shape, GeometricOps::add);
-        multi_polygon_.addAPolygon(inner_wall_shape, GeometricOps::sub);
+        multi_polygon_.addPolygon(outer_wall_shape, GeometricOps::add);
+        multi_polygon_.addPolygon(inner_wall_shape, GeometricOps::sub);
     }
 };
 //----------------------------------------------------------------------
@@ -232,12 +232,13 @@ int main(int ac, char *av[])
     //	Creating bodies with corresponding materials and particles.
     //----------------------------------------------------------------------
     FluidBody water_body(sph_system, makeShared<WaterBlock>("WaterBody"));
-    water_body.defineClosure<WeaklyCompressibleFluid, Viscosity>(ConstructArgs(rho0_f, c_f), mu_f);
+    water_body.defineMatterMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
+    water_body.addMaterialProperty<Viscosity>(mu_f);
     ParticleBuffer<ReserveSizeFactor> particle_buffer(0.5);
     water_body.generateParticlesWithReserve<BaseParticles, Lattice>(particle_buffer);
 
     SolidBody wall(sph_system, makeShared<WallBoundary>("WallBoundary"));
-    wall.defineMaterial<Solid>();
+    wall.defineMatterMaterial<Solid>();
     wall.generateParticles<BaseParticles, Lattice>();
     // Add observer
     {
@@ -260,10 +261,10 @@ int main(int ac, char *av[])
     // //----------------------------------------------------------------------
     // //	Creating body parts.
     // //----------------------------------------------------------------------
-    AlignedBoxByCell left_emitter_by_cell(water_body, AlignedBox(xAxis, Transform(left_bidirectional_translation), bidirectional_buffer_halfsize));
-    left_emitter_by_cell.writeShapeProxy();
-    AlignedBoxByCell right_emitter_by_cell(water_body, AlignedBox(xAxis, Transform(Rotation2d(Pi), Vec2d(right_disposer_translation)), bidirectional_buffer_halfsize));
-    right_emitter_by_cell.writeShapeProxy();
+    OrientedBoxByCell left_emitter_by_cell(water_body, OrientedBox(xAxis, Transform(left_bidirectional_translation), bidirectional_buffer_halfsize));
+    left_emitter_by_cell.writeOrientedBoxToVtp();
+    OrientedBoxByCell right_emitter_by_cell(water_body, OrientedBox(xAxis, Transform(Rotation2d(Pi), Vec2d(right_disposer_translation)), bidirectional_buffer_halfsize));
+    right_emitter_by_cell.writeOrientedBoxToVtp();
 
     //----------------------------------------------------------------------
     //	Define body relation map.
@@ -325,7 +326,7 @@ int main(int ac, char *av[])
     BodyStatesRecordingToVtpCK<MainExecutionPolicy> body_states_recording(sph_system);
     body_states_recording.addToWrite<Real>(water_body, "Pressure");
     body_states_recording.addToWrite<int>(water_body, "BufferIndicator");
-    ObservedQuantityRecording<MainExecutionPolicy, Vecd, RestoringCorrection> write_centerline_velocity("Velocity", velocity_observer_contact);
+    ObservedQuantityRecording<MainExecutionPolicy, Vecd, RestoringCorrection> write_centerline_velocity(velocity_observer_contact, "Velocity");
     //----------------------------------------------------------------------
     //	Prepare the simulation with cell linked list, configuration
     //	and case specified initial condition if necessary.
@@ -341,7 +342,7 @@ int main(int ac, char *av[])
     //----------------------------------------------------------------------
     //	Setup for time-stepping control
     //----------------------------------------------------------------------
-    SingularVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
+    SingleVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
     size_t number_of_iterations = 0;
     size_t screen_output_interval = 100;
     size_t observation_sample_interval = screen_output_interval * 2;

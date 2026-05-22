@@ -33,19 +33,23 @@
 #include "base_geometry.h"
 #include "sdf_extension.hpp"
 #include "sdf_operation.hpp"
-#include "sphinxsys_entity.h"
 #include "sdf_primitive.h"
+#include "sphinxsys_entity.h"
 
 namespace SPH
 {
 
-class SDFBase : public Entity
+class SDFBase
 {
   public:
-    explicit SDFBase(const std::string &name) : Entity(name) {};
+    explicit SDFBase(const std::string &name) : name_(name) {};
     virtual ~SDFBase() {};
     virtual Real operator()(const Vec3d &point) const = 0;
     virtual BoundingBoxd findBounds() const = 0;
+    std::string Name() { return name_; };
+
+  protected:
+    std::string name_;
 };
 
 template <typename SDFPrimitive>

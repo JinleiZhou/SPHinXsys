@@ -24,7 +24,7 @@ SolidBodyFromMesh::SolidBodyFromMesh(
 {
     defineAdaptationRatios(1.15, system.GlobalResolution() / resolution);
     defineBodyLevelSetShape().cleanLevelSet();
-    defineMaterial<SaintVenantKirchhoffSolid>(*material_model.get());
+    defineMatterMaterial<SaintVenantKirchhoffSolid>(*material_model.get());
     generateParticles<BaseParticles, Lattice>();
 }
 
@@ -109,7 +109,7 @@ std::tuple<Vecd *, Real *> generateAndRelaxParticlesFromMesh(
     SPHSystem system(bb, resolution);
     SolidBody model(system, triangle_mesh_shape);
     model.defineBodyLevelSetShape().cleanLevelSet();
-    model.defineMaterial<Solid>();
+    model.defineMatterMaterial<Solid>();
     model.generateParticles<BaseParticles, Lattice>();
 
     if (particle_relaxation)
@@ -193,8 +193,8 @@ StructuralSimulation::StructuralSimulation(const StructuralSimulationInput &inpu
       // default system, optional: particle relaxation, scale_system_boundaries
       particle_relaxation_list_(input.particle_relaxation_list_),
       write_particle_relaxation_data_(input.write_particle_relaxation_data_),
-      system_resolution_(0.0),
-      system_(SPHSystem(BoundingBoxd(Vec3d::Zero(), Vec3d::Zero()), system_resolution_)),
+      system_resolution_(Eps),
+      system_(SPHSystem(BoundingBoxd(Vec3d::Constant(-Eps), Vec3d::Constant(Eps)), system_resolution_)),
       scale_system_boundaries_(input.scale_system_boundaries_),
       physical_time_(*system_.getSystemVariableDataByName<Real>("PhysicalTime")),
 

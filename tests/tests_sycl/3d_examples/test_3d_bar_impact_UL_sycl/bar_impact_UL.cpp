@@ -135,12 +135,12 @@ int main(int ac, char *av[])
         }
     }
     auto &column = sph_system.addBody<RealBody>(column_shape);
-    column.defineMaterial<J2Plasticity>(rho0_s, c0, Youngs_modulus, poisson, yield_stress);
-    column.generateParticles<BaseParticles, Reload>(column.getName());
+    column.defineMatterMaterial<J2Plasticity>(rho0_s, c0, Youngs_modulus, poisson, yield_stress);
+    column.generateParticles<BaseParticles, Reload>(column.Name());
 
     auto &wall_boundary = sph_system.addBody<SolidBody>(wall_shape);
-    wall_boundary.defineMaterial<SaintVenantKirchhoffSolid>(rho0_s, Youngs_modulus, poisson);
-    wall_boundary.generateParticles<BaseParticles, Reload>(wall_boundary.getName())
+    wall_boundary.defineMatterMaterial<SaintVenantKirchhoffSolid>(rho0_s, Youngs_modulus, poisson);
+    wall_boundary.generateParticles<BaseParticles, Reload>(wall_boundary.Name())
         .reloadExtraVariable<Vecd>("NormalDirection");
 
     auto &column_observer = sph_system.addBody<ObserverBody>("ColumnObserver");
@@ -205,7 +205,7 @@ int main(int ac, char *av[])
     body_state_recorder.addToWrite<Real>(column, "Density");
     auto &record_column_mechanical_energy = main_methods.addReduceRegression<
         RegressionTestDynamicTimeWarping, TotalKineticEnergyCK>(column);
-    auto &column_observer_position = main_methods.addObserveRecorder<Vecd>("Position", column_observer_contact);
+    auto &column_observer_position = main_methods.addObserveRecorder<Vecd>(column_observer_contact, "Position");
     //----------------------------------------------------------------------
     //	Define time stepper with end and start time.
     //----------------------------------------------------------------------

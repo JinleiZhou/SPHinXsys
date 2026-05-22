@@ -62,22 +62,10 @@ class WallBoundary : public MultiPolygonShape
   public:
     explicit WallBoundary(const std::string &shape_name) : MultiPolygonShape(shape_name)
     {
-        multi_polygon_.addAPolygon(CreateOuterWallShape(), GeometricOps::add);
-        multi_polygon_.addAPolygon(CreateInnerWallShape(), GeometricOps::sub);
-        multi_polygon_.addABox(Transform(inlet_translation), inlet_halfsize, GeometricOps::sub);
+        multi_polygon_.addPolygon(CreateOuterWallShape(), GeometricOps::add);
+        multi_polygon_.addPolygon(CreateInnerWallShape(), GeometricOps::sub);
+        multi_polygon_.addBox(Transform(inlet_translation), inlet_halfsize, GeometricOps::sub);
     }
-};
-//----------------------------------------------------------------------
-//	Inlet inflow condition
-//----------------------------------------------------------------------
-struct ConstantInflowVelocity
-{
-    ConstantInflowVelocity() {};
-
-    Real getAxisVelocity(const Vecd &, const Real &, Real)
-    {
-        return 2.0;
-    };
 };
 //----------------------------------------------------------------------
 //	Main program starts here.
@@ -92,12 +80,12 @@ int main(int ac, char *av[])
     //----------------------------------------------------------------------
     GeometricShapeBox water_inlet_shape(Transform(inlet_translation), inlet_halfsize);
     FluidBody water_body(sph_system, water_inlet_shape, "WaterBody");
-    water_body.defineMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
+    water_body.defineMatterMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
     ParticleBuffer<ReserveSizeFactor> inlet_buffer(350.0);
     water_body.generateParticlesWithReserve<BaseParticles, Lattice>(inlet_buffer);
 
     SolidBody wall(sph_system, makeShared<WallBoundary>("Wall"));
-    wall.defineMaterial<Solid>();
+    wall.defineMatterMaterial<Solid>();
     wall.generateParticles<BaseParticles, Lattice>();
 
     ObserverBody fluid_observer(sph_system, "FluidObserver");
@@ -105,8 +93,8 @@ int main(int ac, char *av[])
     //----------------------------------------------------------------------
     //	Creating body parts.
     //----------------------------------------------------------------------
-    AlignedBoxByParticle emitter(water_body, AlignedBox(xAxis, Transform(inlet_translation), inlet_halfsize));
-    emitter.writeShapeProxy();
+    OrientedBoxByParticle emitter(water_body, OrientedBox(xAxis, Transform(inlet_translation), inlet_halfsize));
+    emitter.writeOrientedBoxToVtp();
     //----------------------------------------------------------------------
     //	Define body relation map.
     //	The contact map gives the topological connections between the bodies.
@@ -151,8 +139,8 @@ int main(int ac, char *av[])
     ReduceDynamicsCK<MainExecutionPolicy, fluid_dynamics::AdvectionTimeStepCK> fluid_advection_time_step(water_body, U_f);
     ReduceDynamicsCK<MainExecutionPolicy, fluid_dynamics::AcousticTimeStepCK<>> fluid_acoustic_time_step(water_body);
 
-    StateDynamics<MainExecutionPolicy, fluid_dynamics::EmitterInflowConditionCK<AlignedBoxByParticle, ConstantInflowVelocity>> inflow_condition(emitter);
-    StateDynamics<MainExecutionPolicy, fluid_dynamics::EmitterInflowInjectionCK<AlignedBoxByParticle>> emitter_injection(emitter, inlet_buffer);
+    StateDynamics<MainExecutionPolicy, fluid_dynamics::EmitterInflowConditionCK<OrientedBoxByParticle, ConstantInflowSpeed>> inflow_condition(emitter, 2.0);
+    StateDynamics<MainExecutionPolicy, fluid_dynamics::EmitterInflowInjectionCK<OrientedBoxByParticle>> emitter_injection(emitter);
     //----------------------------------------------------------------------
     //	Define the methods for I/O operations, observations
     //	and regression tests of the simulation.
@@ -161,12 +149,12 @@ int main(int ac, char *av[])
     RegressionTestDynamicTimeWarping<ReducedQuantityRecording<MainExecutionPolicy, TotalMechanicalEnergyCK>>
         write_water_mechanical_energy(water_body, gravity);
     RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Real>>
-        write_recorded_water_pressure("Pressure", fluid_observer_contact);
+        write_recorded_water_pressure(fluid_observer_contact,"Pressure");
     //----------------------------------------------------------------------
     //	Prepare the simulation with cell linked list, configuration
     //	and case specified initial condition if necessary.
     //----------------------------------------------------------------------
-    SingularVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
+    SingleVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
 
     wall_boundary_normal_direction.exec(); // run particle dynamics on CPU first
     constant_gravity.exec();

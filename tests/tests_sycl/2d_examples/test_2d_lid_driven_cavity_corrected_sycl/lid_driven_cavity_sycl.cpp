@@ -38,7 +38,7 @@ class WaterBlock : public MultiPolygonShape
         water_body_shape.push_back(Vecd(DL, DH));
         water_body_shape.push_back(Vecd(DL, 0.0));
         water_body_shape.push_back(Vecd(0.0, 0.0));
-        multi_polygon_.addAPolygon(water_body_shape, GeometricOps::add);
+        multi_polygon_.addPolygon(water_body_shape, GeometricOps::add);
     }
 };
 /**
@@ -63,8 +63,8 @@ class WallBoundary : public MultiPolygonShape
         inner_wall_shape.push_back(Vecd(DL, 0.0));
         inner_wall_shape.push_back(Vecd(0.0, 0.0));
 
-        multi_polygon_.addAPolygon(outer_wall_shape, GeometricOps::add);
-        multi_polygon_.addAPolygon(inner_wall_shape, GeometricOps::sub);
+        multi_polygon_.addPolygon(outer_wall_shape, GeometricOps::add);
+        multi_polygon_.addPolygon(inner_wall_shape, GeometricOps::sub);
     }
 };
 //----------------------------------------------------------------------
@@ -136,11 +136,12 @@ int main(int ac, char *av[])
     //	Creating body, materials and particles.
     //----------------------------------------------------------------------
     FluidBody water_body(sph_system, makeShared<WaterBlock>("WaterBody"));
-    water_body.defineClosure<WeaklyCompressibleFluid, Viscosity>(ConstructArgs(rho0_f, c_f), mu_f);
+    water_body.defineMatterMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
+    water_body.addMaterialProperty<Viscosity>(mu_f);
     water_body.generateParticles<BaseParticles, Lattice>();
 
     SolidBody wall_boundary(sph_system, makeShared<WallBoundary>("Wall"));
-    wall_boundary.defineMaterial<Solid>();
+    wall_boundary.defineMatterMaterial<Solid>();
     wall_boundary.generateParticles<BaseParticles, Lattice>();
     //----------------------------------------------------------------------
     //	Particle and body creation of fluid observers.
@@ -222,13 +223,13 @@ int main(int ac, char *av[])
     body_states_recording.addToWrite<int>(water_body, "Indicator");
     body_states_recording.addToWrite<Vecd>(wall_boundary, "Velocity");
 
-    RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Vecd>> write_horizontal_velocity("Velocity", horizontal_observer_contact);
-    RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Vecd>> write_vertical_velocity("Velocity", vertical_observer_contact);
+    RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Vecd>> write_horizontal_velocity(horizontal_observer_contact, "Velocity");
+    RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Vecd>> write_vertical_velocity(vertical_observer_contact, "Velocity");
     //----------------------------------------------------------------------
     //	Prepare the simulation with cell linked list, configuration
     //	and case specified initial condition if necessary.
     //----------------------------------------------------------------------
-    SingularVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
+    SingleVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
     wall_boundary_normal_direction.exec(); // run particle dynamics on CPU first
     water_cell_linked_list.exec();
     wall_cell_linked_list.exec();
@@ -306,7 +307,6 @@ int main(int ac, char *av[])
                 std::cout << std::fixed << std::setprecision(9) << "N=" << number_of_iterations << "	Time = "
                           << sv_physical_time->getValue()
                           << "	advection_dt = " << advection_dt << "	acoustic_dt = " << acoustic_dt << "\n";
-
             }
             number_of_iterations++;
 

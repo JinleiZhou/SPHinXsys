@@ -37,6 +37,7 @@
 #include "data_type.h"
 #include "sphinxsys_constant.h"
 #include "sphinxsys_variable.h"
+#include "variable_functions.h"
 
 #include <fstream>
 
@@ -130,7 +131,7 @@ template <class MeshType>
 class MultiResolutionMeshField : public BaseMeshField
 {
     DataContainerUniquePtrAssemble<DiscreteVariable> cell_variable_ptrs_;
-    UniquePtrsKeeper<Entity> unique_entity_ptrs_;
+    UniquePtrsKeeper<Quantity> unique_entity_ptrs_;
 
   public:
     MultiResolutionMeshField(
@@ -138,7 +139,7 @@ class MultiResolutionMeshField : public BaseMeshField
         BoundingBoxd tentative_bounds, Real Reference_grid_spacing, UnsignedInt buffer_width);
     virtual ~MultiResolutionMeshField() {};
 
-    UniquePtrsKeeper<MeshType> meshs_keeper_;
+    UniquePtrsKeeper<MeshType> meshes_keeper_;
     MeshType *getMeshes() { return ca_meshes_.Data(); };
     MeshType &getMesh(UnsignedInt level) { return ca_meshes_.Data()[level]; };
     MeshType &getCoarsestMesh() { return ca_meshes_.Data()[0]; };

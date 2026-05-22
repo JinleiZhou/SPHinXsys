@@ -35,8 +35,6 @@
 #ifndef STATE_ENGINE_SIMBODY_H
 #define STATE_ENGINE_SIMBODY_H
 
-#define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
-
 #include "data_type.h"
 #include "exception.h"
 #include "ownership.h"
@@ -83,7 +81,7 @@ class SimbodyStateEngine
 
         virtual ~StateVariable() {}
 
-        std::string &getName() { return name_; }
+        std::string &Name() { return name_; }
         SimbodyStateEngine &getOwner() { return *owner_; }
         /** Get the index of simbody state variable. */
         int &getVarIndex() { return varindex_; }

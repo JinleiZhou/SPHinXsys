@@ -92,7 +92,7 @@ int main(int ac, char *av[])
     beam_shape.add(&beam_base_shape);
     beam_shape.add(&beam_column);
     auto &beam = sph_system.addBody<RealBody>(beam_shape);
-    beam.defineMaterial<GeneralContinuum>(rho0_s, c0, Youngs_modulus, poisson);
+    beam.defineMatterMaterial<GeneralContinuum>(rho0_s, c0, Youngs_modulus, poisson);
     beam.generateParticles<BaseParticles, Lattice>();
     BodyRegionByParticle beam_base(beam, beam_base_shape);
 
@@ -155,7 +155,7 @@ int main(int ac, char *av[])
     body_state_recorder.addDerivedVariableToWrite<continuum_dynamics::VonMisesStressCK>(beam);
     auto &record_beam_mechanical_energy = main_methods.addReduceRegression<
         RegressionTestDynamicTimeWarping, TotalKineticEnergyCK>(beam);
-    auto &beam_observer_position = main_methods.addObserveRecorder<Vecd>("Position", beam_observer_contact);
+    auto &beam_observer_position = main_methods.addObserveRecorder<Vecd>(beam_observer_contact, "Position");
     //----------------------------------------------------------------------
     //	Define time stepper with end and start time.
     //----------------------------------------------------------------------

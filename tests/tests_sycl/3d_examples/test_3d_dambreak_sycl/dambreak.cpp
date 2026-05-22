@@ -79,11 +79,11 @@ int main(int ac, char *av[])
     //----------------------------------------------------------------------
     WaterBlock initial_water_block("WaterBody");
     FluidBody water_block(sph_system, initial_water_block);
-    water_block.defineMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
+    water_block.defineMatterMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
     water_block.generateParticles<BaseParticles, Lattice>();
 
     SolidBody wall_boundary(sph_system, makeShared<WallBoundary>("WallBoundary"));
-    wall_boundary.defineMaterial<Solid>();
+    wall_boundary.defineMatterMaterial<Solid>();
     wall_boundary.generateParticles<BaseParticles, Lattice>();
 
     ObserverBody fluid_observer(sph_system, "FluidObserver");
@@ -146,12 +146,12 @@ int main(int ac, char *av[])
     RegressionTestDynamicTimeWarping<ReducedQuantityRecording<MainExecutionPolicy, TotalMechanicalEnergyCK>>
         record_water_mechanical_energy(water_block, gravity);
     RegressionTestDynamicTimeWarping<ObservedQuantityRecording<MainExecutionPolicy, Real>>
-        fluid_observer_pressure("Pressure", fluid_observer_contact);
+        fluid_observer_pressure(fluid_observer_contact, "Pressure");
     //----------------------------------------------------------------------
     //	Prepare the simulation with cell linked list, configuration
     //	and case specified initial condition if necessary.
     //----------------------------------------------------------------------
-    SingularVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
+    SingleVariable<Real> *sv_physical_time = sph_system.getSystemVariableByName<Real>("PhysicalTime");
     wall_boundary_normal_direction.exec(); // run particle dynamics with host kernels first
     constant_gravity.exec();
 

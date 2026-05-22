@@ -32,6 +32,8 @@ Real U_f = 1.0;                                               /**< Characteristi
 Real c_f = 10.0 * U_f;                                        /**< Speed of sound. */
 Real Re = 100.0;                                              /**< Reynolds number. */
 Real mu_f = rho0_f * U_f * (2.0 * insert_circle_radius) / Re; /**< Dynamics viscosity. */
+StartupToConstantInflowSpeed free_stream_speed(U_f, start_up_time);
+StartupAcceleration free_stream_acceleration(Vec2d(U_f, 0.0), start_up_time);
 //----------------------------------------------------------------------
 //	Define geometries
 //----------------------------------------------------------------------
@@ -40,11 +42,11 @@ GeometricShapeBall cylinder_shape(insert_circle_center, insert_circle_radius, "C
 
 Vec2d emitter_halfsize = Vec2d(BW, 0.5 * DH);
 Vec2d emitter_translation = Vec2d(-DL_sponge, 0.0) + emitter_halfsize;
-AlignedBox emitter_box(xAxis, Transform(Vec2d(emitter_translation)), emitter_halfsize);
+OrientedBox emitter_box(xAxis, Transform(Vec2d(emitter_translation)), emitter_halfsize);
 
 Vec2d disposer_halfsize = Vec2d(0.5 * BW, 0.75 * DH);
 Vec2d disposer_translation = Vec2d(DL, -0.25 * DH) + disposer_halfsize;
-AlignedBox disposer_box(xAxis, Transform(Vec2d(disposer_translation)), disposer_halfsize);
+OrientedBox disposer_box(xAxis, Transform(Vec2d(disposer_translation)), disposer_halfsize);
 //----------------------------------------------------------------------
 //	Define adaptation
 //----------------------------------------------------------------------
@@ -54,19 +56,6 @@ GeometricShapeBox refinement_region(
     BoundingBoxd(Vecd(-DL_sponge - BW, 0.5 * DH - 0.1 * DL), Vecd(DL + BW, 0.5 * DH + 0.1 * DL)),
     "RefinementRegion");
 AdaptiveNearSurface cylinder_adaptation(particle_spacing_ref, 1.3, 1.0, 2);
-//----------------------------------------------------------------------
-//	Free-stream velocity
-//----------------------------------------------------------------------
-struct FreeStreamVelocity
-{
-    Real u_ref_, t_ref_;
-
-    FreeStreamVelocity() : u_ref_(U_f), t_ref_(start_up_time) {};
-    Real getAxisVelocity(const Vecd &input_position, const Real &input_axis_velocity, Real time)
-    {
-        return time < t_ref_ ? 0.5 * u_ref_ * (1.0 - cos(Pi * time / t_ref_)) : u_ref_;
-    };
-};
 //----------------------------------------------------------------------
 //	Main program starts here.
 //----------------------------------------------------------------------
@@ -214,22 +203,23 @@ int main(int ac, char *av[])
     auto &water_body = sph_system.addAdaptiveBody<FluidBody>(water_body_adaptation, water_body_shape);
     water_body.defineComponentLevelSetShape("OuterBoundary").writeLevelSet();
     sph_system.addShape<LevelSetShape>(water_body, refinement_region).writeLevelSet();
-    water_body.defineClosure<WeaklyCompressibleFluid, Viscosity>(ConstructArgs(rho0_f, c_f), mu_f);
+    water_body.defineMatterMaterial<WeaklyCompressibleFluid>(rho0_f, c_f);
+    water_body.addMaterialProperty<Viscosity>(mu_f);
     ParticleBuffer<ReserveSizeFactor> inlet_particle_buffer(0.5);
-    water_body.generateParticlesWithReserve<BaseParticles, Reload>(inlet_particle_buffer, water_body.getName())
+    water_body.generateParticlesWithReserve<BaseParticles, Reload>(inlet_particle_buffer, water_body.Name())
         .reloadExtraVariable<Real>("SmoothingLengthRatio");
     // //----------------------------------------------------------------------
     // //	Creating body parts.
     // //----------------------------------------------------------------------
-    auto &emitter = water_body.addBodyPart<AlignedBoxByParticle>(emitter_box);
-    emitter.writeShapeProxy();
-    auto &disposer = water_body.addBodyPart<AlignedBoxByCell>(disposer_box);
-    disposer.writeShapeProxy();
+    auto &emitter = water_body.addBodyPart<OrientedBoxByParticle>(emitter_box);
+    emitter.writeOrientedBoxToVtp();
+    auto &disposer = water_body.addBodyPart<OrientedBoxByCell>(disposer_box);
+    disposer.writeOrientedBoxToVtp();
 
     auto &cylinder = sph_system.addAdaptiveBody<SolidBody>(cylinder_adaptation, cylinder_shape);
     cylinder.defineBodyLevelSetShape().writeLevelSet();
-    cylinder.defineMaterial<Solid>();
-    cylinder.generateParticles<BaseParticles, Reload>(cylinder.getName())
+    cylinder.defineMatterMaterial<Solid>();
+    cylinder.generateParticles<BaseParticles, Reload>(cylinder.Name())
         .reloadExtraVariable<Vecd>("NormalDirection");
 
     ObserverBody fluid_observer(sph_system, "FluidObserver");
@@ -269,7 +259,7 @@ int main(int ac, char *av[])
     auto &update_observer_relation = main_methods.addRelationDynamics(fluid_observer_contact);
     auto &particle_sort = main_methods.addSortDynamics(water_body);
 
-    auto &time_dependent_gravity = main_methods.addStateDynamics<GravityForceCK<StartupAcceleration>>(water_body, Vec2d(U_f, 0.0), start_up_time);
+    auto &time_dependent_gravity = main_methods.addStateDynamics<GravityForceCK<StartupAcceleration>>(water_body, free_stream_acceleration);
     auto &water_advection_step_setup = main_methods.addStateDynamics<fluid_dynamics::AdvectionStepSetup>(water_body);
     auto &water_update_particle_position = main_methods.addStateDynamics<fluid_dynamics::UpdateParticlePosition>(water_body);
 
@@ -286,7 +276,8 @@ int main(int ac, char *av[])
         main_methods.addInteractionDynamicsOneLevel<
                         fluid_dynamics::AcousticStep1stHalf, AcousticRiemannSolverCK, NoKernelCorrectionCK>(water_body_inner)
             .addPostContactInteraction<Wall, AcousticRiemannSolverCK, NoKernelCorrectionCK>(water_body_contact)
-            .addPostStateDynamics<fluid_dynamics::FreeStreamCondition<FreeStreamVelocity>>(water_body);
+            .addPostStateDynamics<fluid_dynamics::FreeStreamCondition<StartupToConstantInflowSpeed>>(
+                water_body, free_stream_speed);
     auto &fluid_acoustic_step_2nd_half =
         main_methods.addInteractionDynamicsOneLevel<
                         fluid_dynamics::AcousticStep2ndHalf, AcousticRiemannSolverCK, NoKernelCorrectionCK>(water_body_inner)
@@ -306,8 +297,9 @@ int main(int ac, char *av[])
                         fluid_dynamics::ViscousForceCK, Viscosity, NoKernelCorrectionCK>(water_body_inner)
             .addPostContactInteraction<Wall, Viscosity, NoKernelCorrectionCK>(water_body_contact);
 
-    auto &emitter_injection = main_methods.addStateDynamics<fluid_dynamics::EmitterInflowInjectionCK>(emitter, inlet_particle_buffer);
-    auto &inflow_condition = main_methods.addStateDynamics<fluid_dynamics::EmitterInflowConditionCK, FreeStreamVelocity>(emitter);
+    auto &emitter_injection = main_methods.addStateDynamics<fluid_dynamics::EmitterInflowInjectionCK>(emitter);
+    auto &inflow_condition = main_methods.addStateDynamics<
+        fluid_dynamics::EmitterInflowConditionCK, StartupToConstantInflowSpeed>(emitter, free_stream_speed);
     auto &disposer_indication = main_methods.addStateDynamics<fluid_dynamics::WithinDisposerIndication>(disposer);
     auto &particle_deletion = main_methods.addStateDynamics<fluid_dynamics::OutflowParticleDeletion>(water_body);
     //----------------------------------------------------------------------
@@ -319,7 +311,7 @@ int main(int ac, char *av[])
     write_real_body_states.addToWrite<int>(water_body, "Indicator");
     write_real_body_states.addToWrite<Vecd>(cylinder, "NormalDirection");
     auto &fluid_observer_pressure = main_methods.addObserveRegression<
-        RegressionTestDynamicTimeWarping, Vecd>("Velocity", fluid_observer_contact);
+        RegressionTestDynamicTimeWarping, Vecd>(fluid_observer_contact, "Velocity");
     //----------------------------------------------------------------------
     //	Define time stepper with end and start time.
     //----------------------------------------------------------------------
